@@ -7,28 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 RUN npm install -g openclaw@latest
 
-# Config directory ဆောက်ခြင်း
-RUN mkdir -p /root/.openclaw
-
-# OpenClaw ၏ Schema အမှန်အတိုင်း JSON ကို တည်ဆောက်ခြင်း
-RUN echo '{\
-  "gateway": {\
-    "bind": "0.0.0.0",\
-    "port": 18789\
-  },\
-  "instances": [\
-    {\
-      "name": "main",\
-      "auth": {\
-        "choice": "gemini-api-key",\
-        "gemini-api-key": "REPLACE_ME_KEY"\
-      }\
-    }\
-  ]\
-}' > /root/.openclaw/openclaw.json
-
+# Port 18789 အတွက် ပြင်ဆင်ခြင်း
 ENV PORT=18789
 EXPOSE 18789
 
-# --host command ကို ဖယ်ထုတ်ပြီး JSON ထဲက bind ကိုပဲ အားကိုးပါမယ်
-CMD ["sh", "-c", "sed -i \"s/REPLACE_ME_KEY/$GEMINI_API_KEY/g\" /root/.openclaw/openclaw.json && openclaw gateway run --port 18789 --verbose"]
+# Step 1: onboard ကို အရင် run ခိုင်းပြီး JSON အမှန်ကို ထွက်လာအောင်လုပ်မယ်
+# Step 2: ထွက်လာတဲ့ JSON ထဲက loopback IP ကို sed နဲ့ အတင်းလိုက်ပြင်မယ်
+# Step 3: Gateway ကို 0.0.0.0 မှာ bind ပြီး run မယ်
+CMD ["sh", "-c", "openclaw onboard --non-interactive --accept-risk --mode local --auth-choice gemini-api-key --gemini-api-key \"$GEMINI_API_KEY\" --gateway-port 18789 && \
+    sed -i 's/127.0.0.1/0.0.0.0/g' /root/.openclaw/openclaw.json && \
+    openclaw gateway run --port 18789 --bind-all --verbose || openclaw gateway run --port 18789 --verbose"]
